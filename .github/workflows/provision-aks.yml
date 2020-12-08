@@ -38,7 +38,7 @@ jobs:
       - name: Azure Login
         uses: Azure/login@v1
         with:
-          creds: ${{ secrets.GH_MSI_AZ_PR }}
+          creds: ${{ secrets.GH_VSE_PR_AZ }}
 
       - name: Run create aks script
         run: |
