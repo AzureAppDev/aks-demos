@@ -42,7 +42,7 @@ jobs:
 
       - name: Run create aks script
         run: |
-          sh create-aks-cluster.sh \
+          sh ./scripts/provision-aks.sh \
             ${{ github.event.inputs.resource_group_name }} \
             ${{ github.event.inputs.region_name }} \
             ${{ github.event.inputs.vnet_name }} \
