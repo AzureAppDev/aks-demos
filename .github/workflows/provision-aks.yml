@@ -1,0 +1,53 @@
+name: Provision AKS Cluster
+
+on:
+  workflow_dispatch:
+    inputs:
+      resource_group_name:
+        description: 'Name of the Azure Resource Group for cluster'
+        required: true
+      region_name:
+        description: 'Name of the Azure Region for cluster'
+        required: true
+      vnet_name:
+        description: 'Name of the Virtual Network for the cluster'
+        required: true
+      subnet_name:
+        description: 'Name of the subnet in the Virtual Network for the cluster'
+        required: true
+      aks_cluster_name:
+        description: 'Name of the Azure Kubernetes Cluster'
+        required: true
+      log_analytics_name:
+        description: 'Name of the Logs Analytics Workspace'
+        required: true
+      ad_group_id:
+        description: 'Name of the Active Directory Group Object Id'
+        required: true
+      ad_group_tenant:
+        description: 'Name of the Azure Tenant Id'
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Azure Login
+        uses: Azure/login@v1
+        with:
+          creds: ${{ secrets.GH_MSI_AZ_PR }}
+
+      - name: Run create aks script
+        run: |
+          sh create-aks-cluster.sh \
+            ${{ github.event.inputs.resource_group_name }} \
+            ${{ github.event.inputs.region_name }} \
+            ${{ github.event.inputs.vnet_name }} \
+            ${{ github.event.inputs.subnet_name }} \
+            ${{ github.event.inputs.aks_cluster_name }} \
+            ${{ github.event.inputs.log_analytics_name }} \
+            ${{ github.event.inputs.ad_group_id }} \
+            ${{ github.event.inputs.ad_group_tenant }}
