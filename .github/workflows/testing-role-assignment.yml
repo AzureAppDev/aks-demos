@@ -1,0 +1,21 @@
+name: Assigning Roles
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Azure Login
+        uses: Azure/Login@v1.1
+        with:
+          creds: ${{ secrets.GH_TEST_SP }}
+
+      - name: Run a multi-line script
+        run: |
+          echo Add other actions to build,
+          echo test, and deploy your project.
