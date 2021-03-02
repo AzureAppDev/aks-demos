@@ -1,0 +1,15 @@
+{
+    "Name": "GitHub Actions",
+    "IsCustom": true,
+    "Description": "Assign Roles from GitHub Action",
+    "Actions": [
+        "Microsoft.Authorization/roleAssignments/write",
+        "Microsoft.Authorization/roleAssignments/read"
+    ],
+    "NotActions": [
+  
+    ],
+    "AssignableScopes": [
+        "/subscriptions/$SUB_ID"
+    ]
+}

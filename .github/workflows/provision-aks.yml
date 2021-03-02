@@ -83,7 +83,7 @@ jobs:
       - name: Get and Increment Provision Number from KeyVault
         id: increment
         run: |          
-          ./Azure/Compute/AKS/update-version.ps1 `
+          ./provision/update-version.ps1 `
             -KEY_VAULT_NAME ${{ steps.envnumber.outputs.key_vault_name }} `
             -PROVISION_NUMBER_SECRET_NAME AKS-${{ github.event.inputs.application_name }}-${{ github.event.inputs.environment }} `
             -INCREMENT ${{ github.event.inputs.increment_provision_number }}
@@ -150,7 +150,7 @@ jobs:
           
       - name: Run Create Cluster Script
         run: |
-          ./Azure/Compute/AKS/create-cluster.ps1 `
+          ./provision/create-cluster.ps1 `
             -AD_GROUP_ID ${{ steps.getAKSSecrets.outputs.AD-GROUP-OBJECT-ID }} `
             -AD_TENANT_ID ${{ steps.getAKSSecrets.outputs.TENANT-ID }} `
             -REGION_NAME ${{ github.event.inputs.region_name }} `
@@ -198,7 +198,7 @@ jobs:
 
       - name: Run Install Tag Script
         run: |
-          ./Azure/Compute/AKS/tag-cluster.ps1 `
+          ./provision/tag-cluster.ps1 `
               -AD_GROUP_ID ${{ steps.getObjectIdSecrets.outputs.AD-GROUP-OBJECT-ID }} `
               -RESOURCE_GROUP_NAME ${{ needs.provision-cluster.outputs.resource_group_name }} `
               -AKS_CLUSTER_NAME ${{ needs.provision-cluster.outputs.aks_cluster_name }} `
@@ -239,7 +239,7 @@ jobs:
           
       - name: Run Create Cluster Script
         run: |
-          ./Azure/Compute/AKS/assign-acrpull.ps1 `
+          ./provision/assign-acrpull.ps1 `
             -AKS_CLUSTER_NAME ${{ needs.provision-cluster.outputs.aks_cluster_name }} `
             -AKS_CLUSTER_RESOURCE_GROUP ${{ needs.provision-cluster.outputs.resource_group_name }} `
             -AZURE_CONTAINER_REGISTRY_NAME ${{ needs.setup.outputs.registry_name }} `
@@ -300,7 +300,7 @@ jobs:
           
       - name: Run Create Cluster Script
         run: |
-          sh ./Azure/Compute/AKS/setup-gitops.sh \
+          sh ./provision/setup-gitops.sh \
             ${{ github.repository_owner }} \
             ${{ github.event.inputs.gitops_repo }} \
             main \
