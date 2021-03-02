@@ -1,53 +1,311 @@
-name: Provision AKS Cluster
+name: Provision Azure K8s
 
 on:
   workflow_dispatch:
     inputs:
-      resource_group_name:
-        description: 'Name of the Azure Resource Group for cluster'
+      application_name:
+        description: 'Abbreviation of the ppplication name'
         required: true
+      increment_provision_number:
+        description: 'Increment the version number of the AKS'
+        required: true
+        default: 'yes'
+      env_number:
+        description: 'Environment Increment Number'
+        required: true
+        default: '0'
+      environment:
+        description: 'Abbreviation of the Environment'
+        required: false
+        default: 'dev'
       region_name:
-        description: 'Name of the Azure Region for cluster'
+        description: 'Azure Region to place the resources'
+        required: false
+        default: 'eastus2'
+      gitops_repo:
+        description: 'GitOps Repository int the GitHub Organization'
         required: true
-      vnet_name:
-        description: 'Name of the Virtual Network for the cluster'
-        required: true
-      subnet_name:
-        description: 'Name of the subnet in the Virtual Network for the cluster'
-        required: true
-      aks_cluster_name:
-        description: 'Name of the Azure Kubernetes Cluster'
-        required: true
-      log_analytics_name:
-        description: 'Name of the Logs Analytics Workspace'
-        required: true
-      ad_group_id:
-        description: 'Name of the Active Directory Group Object Id'
-        required: true
-      ad_group_tenant:
-        description: 'Name of the Azure Tenant Id'
-        required: true
-
+        default: 'nuo-k8s'
+        
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  setup:
+    runs-on: windows-2019
+    outputs:
+      provision_number: ${{ steps.increment.outputs.provision_number }}
+      key_vault_name: ${{ steps.envnumber.outputs.key_vault_name }}
+      registry_name: ${{ steps.envnumber.outputs.registry_name }}
+      registry_group_name: ${{ steps.envnumber.outputs.registry_group_name }}
+      
+    steps:
+      - uses: actions/checkout@v2
+
+      # --------------------------------------------------------------
+      #   Azure Production Login
+      # --------------------------------------------------------------
+
+      - name: Azure Prod Login
+        if: contains(github.event.inputs.environment, 'prod')
+        uses: Azure/login@v1.1
+        with:
+          creds: ${{ secrets.AZ_SP_GH }}
+
+      # --------------------------------------------------------------
+      #   Azure Development Login
+      # --------------------------------------------------------------
+          
+      - name: Azure Dev Login
+        if: contains(github.event.inputs.environment, 'dev')
+        uses: Azure/login@v1.1
+        with:
+          creds: ${{ secrets.AZ_SP_GH_DEV }}
+          
+      # --------------------------------------------------------------
+      #   Job Prep: Define Python Version
+      # --------------------------------------------------------------
+          
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      
+      # --------------------------------------------------------------
+      #   Job Body: Define Output Variables for workflow
+      # --------------------------------------------------------------
+      
+      - name: Set the KeyVault, Registry, and Registry Group Name
+        id: envnumber
+        run: |        
+          python Azure/Compute/AKS/Config/action-env.py `
+            ${{ github.event.inputs.environment }} `
+            ${{ github.event.inputs.region_name }} `
+            ${{ github.event.inputs.application_name }} `
+            ${{ github.event.inputs.env_number }}
+      
+      - name: Get and Increment Provision Number from KeyVault
+        id: increment
+        run: |          
+          ./Azure/Compute/AKS/update-version.ps1 `
+            -KEY_VAULT_NAME ${{ steps.envnumber.outputs.key_vault_name }} `
+            -PROVISION_NUMBER_SECRET_NAME AKS-${{ github.event.inputs.application_name }}-${{ github.event.inputs.environment }} `
+            -INCREMENT ${{ github.event.inputs.increment_provision_number }}
+
+  provision-cluster:
+    runs-on: windows-2019
+    needs: [setup]
+    outputs:
+      resource_group_name: ${{ steps.setnames.outputs.resource_group_name }}
+      aks_cluster_name: ${{ steps.setnames.outputs.aks_cluster_name }}
+      log_analytics_name: ${{ steps.setnames.outputs.log_analytics_name }}
+      group_object_id: ${{ steps.setnames.outputs.group_object_id }}
 
     steps:
       - uses: actions/checkout@v2
 
-      - name: Azure Login
-        uses: Azure/login@v1
-        with:
-          creds: ${{ secrets.GH_VSE_PR_AZ }}
+      # --------------------------------------------------------------
+      #   Azure Production Login
+      # --------------------------------------------------------------
 
-      - name: Run create aks script
+      - name: Azure Prod Login
+        if: contains(github.event.inputs.environment, 'prod')
+        uses: Azure/login@v1.1
+        with:
+          creds: ${{ secrets.AZ_SP_GH }}
+
+      # --------------------------------------------------------------
+      #   Azure Development Login
+      # --------------------------------------------------------------
+          
+      - name: Azure Dev Login
+        if: contains(github.event.inputs.environment, 'dev')
+        uses: Azure/login@v1.1
+        with:
+          creds: ${{ secrets.AZ_SP_GH_DEV }}
+
+      # --------------------------------------------------------------
+      #   Job Prep: Define Python Version
+      # --------------------------------------------------------------
+          
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      # --------------------------------------------------------------
+      #   Job Body: Create the Azure Kubernetes Cluster
+      # --------------------------------------------------------------
+
+      - name: Set Resource
+        id: setnames
         run: |
-          sh ./scripts/provision-aks.sh \
-            ${{ github.event.inputs.resource_group_name }} \
-            ${{ github.event.inputs.region_name }} \
-            ${{ github.event.inputs.vnet_name }} \
-            ${{ github.event.inputs.subnet_name }} \
-            ${{ github.event.inputs.aks_cluster_name }} \
-            ${{ github.event.inputs.log_analytics_name }} \
-            ${{ github.event.inputs.ad_group_id }} \
-            ${{ github.event.inputs.ad_group_tenant }}
+          python Azure/Compute/AKS/Config/action-setup.py `
+            ${{ github.event.inputs.environment }} `
+            ${{ github.event.inputs.region_name }} `
+            ${{ github.event.inputs.application_name }} `
+            ${{ needs.setup.outputs.provision_number }}
+
+      - name: Get Secrets
+        id: getAKSSecrets
+        uses: Azure/get-keyvault-secrets@v1
+        with:
+          keyvault: ${{ needs.setup.outputs.key_vault_name }}
+          secrets: 'AD-GROUP-OBJECT-ID, TENANT-ID'
+          
+      - name: Run Create Cluster Script
+        run: |
+          ./Azure/Compute/AKS/create-cluster.ps1 `
+            -AD_GROUP_ID ${{ steps.getAKSSecrets.outputs.AD-GROUP-OBJECT-ID }} `
+            -AD_TENANT_ID ${{ steps.getAKSSecrets.outputs.TENANT-ID }} `
+            -REGION_NAME ${{ github.event.inputs.region_name }} `
+            -RESOURCE_GROUP_NAME ${{ steps.setnames.outputs.resource_group_name }} `
+            -AKS_CLUSTER_NAME ${{ steps.setnames.outputs.aks_cluster_name }} `
+            -LOG_ANALYTICS_NAME ${{ steps.setnames.outputs.log_analytics_name }}
+
+  configure-tags:
+    runs-on: windows-2019
+    needs: [provision-cluster,setup]
+
+    steps:
+      - uses: actions/checkout@v2
+
+      # --------------------------------------------------------------
+      #   Azure Production Login
+      # --------------------------------------------------------------
+
+      - name: Azure Prod Login
+        if: contains(github.event.inputs.environment, 'prod')
+        uses: Azure/login@v1.1
+        with:
+          creds: ${{ secrets.AZ_SP_GH }}
+
+      # --------------------------------------------------------------
+      #   Azure Development Login
+      # --------------------------------------------------------------
+          
+      - name: Azure Dev Login
+        if: contains(github.event.inputs.environment, 'dev')
+        uses: Azure/login@v1.1
+        with:
+          creds: ${{ secrets.AZ_SP_GH_DEV }}
+          
+      # --------------------------------------------------------------
+      #   Job Body: Tag the Cluster Resources
+      # --------------------------------------------------------------
+    
+      - name: Get Secrets
+        id: getObjectIdSecrets
+        uses: Azure/get-keyvault-secrets@v1
+        with:
+          keyvault: ${{ needs.setup.outputs.key_vault_name }}
+          secrets: 'AD-GROUP-OBJECT-ID'
+
+      - name: Run Install Tag Script
+        run: |
+          ./Azure/Compute/AKS/tag-cluster.ps1 `
+              -AD_GROUP_ID ${{ steps.getObjectIdSecrets.outputs.AD-GROUP-OBJECT-ID }} `
+              -RESOURCE_GROUP_NAME ${{ needs.provision-cluster.outputs.resource_group_name }} `
+              -AKS_CLUSTER_NAME ${{ needs.provision-cluster.outputs.aks_cluster_name }} `
+              -LOG_ANALYTICS_NAME ${{ needs.provision-cluster.outputs.log_analytics_name }} `
+              -ENVIRONMENT ${{ github.event.inputs.environment }} `
+              -APP_CODE ${{ github.event.inputs.application_name }}
+
+  configure-permissions:
+    runs-on: windows-2019
+    needs: [provision-cluster,setup]
+
+    steps:
+      - uses: actions/checkout@v2
+          
+      # --------------------------------------------------------------
+      #   Azure Production Login
+      # --------------------------------------------------------------
+
+      - name: Azure Prod Login
+        if: contains(github.event.inputs.environment, 'prod')
+        uses: Azure/login@v1.1
+        with:
+          creds: ${{ secrets.AZ_SP_GH }}
+
+      # --------------------------------------------------------------
+      #   Azure Development Login
+      # --------------------------------------------------------------
+          
+      - name: Azure Dev Login
+        if: contains(github.event.inputs.environment, 'dev')
+        uses: Azure/login@v1.1
+        with:
+          creds: ${{ secrets.AZ_SP_GH_DEV }}
+    
+      # --------------------------------------------------------------
+      #   Job Body: Grant Pull Permissions to AKS Cluster
+      # --------------------------------------------------------------
+          
+      - name: Run Create Cluster Script
+        run: |
+          ./Azure/Compute/AKS/assign-acrpull.ps1 `
+            -AKS_CLUSTER_NAME ${{ needs.provision-cluster.outputs.aks_cluster_name }} `
+            -AKS_CLUSTER_RESOURCE_GROUP ${{ needs.provision-cluster.outputs.resource_group_name }} `
+            -AZURE_CONTAINER_REGISTRY_NAME ${{ needs.setup.outputs.registry_name }} `
+            -AZURE_CONTAINER_REGISTRY_RESOURCE_GROUP ${{ needs.setup.outputs.registry_group_name }}
+          
+  configure-gitops:
+    runs-on: ubuntu-20.04
+    needs: [provision-cluster,setup,configure-permissions]
+
+    steps:
+      - uses: actions/checkout@v2
+          
+      # --------------------------------------------------------------
+      #   Azure Production Login
+      # --------------------------------------------------------------
+
+      - name: Azure Prod Login
+        if: contains(github.event.inputs.environment, 'prod')
+        uses: Azure/login@v1.1
+        with:
+          creds: ${{ secrets.AZ_SP_GH }}
+      
+      - name: Azure Kubernetes set context
+        if: contains(github.event.inputs.environment, 'prod')
+        uses: Azure/aks-set-context@v1
+        with:
+          creds: ${{ secrets.AZ_SP_GH }}
+          resource-group: ${{ needs.provision-cluster.outputs.resource_group_name }}
+          cluster-name: ${{ needs.provision-cluster.outputs.aks_cluster_name }}
+
+      # --------------------------------------------------------------
+      #   Azure Development Login
+      # --------------------------------------------------------------
+          
+      - name: Azure Dev Login
+        if: contains(github.event.inputs.environment, 'dev')
+        uses: Azure/login@v1.1
+        with:
+          creds: ${{ secrets.AZ_SP_GH_DEV }}
+      
+      - name: Azure Kubernetes set context
+        if: contains(github.event.inputs.environment, 'dev')
+        uses: Azure/aks-set-context@v1
+        with:
+          creds: ${{ secrets.AZ_SP_GH_DEV }}
+          resource-group: ${{ needs.provision-cluster.outputs.resource_group_name }}
+          cluster-name: ${{ needs.provision-cluster.outputs.aks_cluster_name }}
+    
+      # --------------------------------------------------------------
+      #   Job Body: Install Flux and Link Repo
+      # --------------------------------------------------------------
+      
+      - name: Install Flux
+        run: |
+          curl -s https://toolkit.fluxcd.io/install.sh | sudo bash
+          kubectl cluster-info
+          flux check --pre
+          
+      - name: Run Create Cluster Script
+        run: |
+          sh ./Azure/Compute/AKS/setup-gitops.sh \
+            ${{ github.repository_owner }} \
+            ${{ github.event.inputs.gitops_repo }} \
+            main \
+            ${{ github.event.inputs.application_name }}-${{ github.event.inputs.environment }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.FLUX_PAT }}
+          GITHUB_USER: ${{ github.actor }}
+          
