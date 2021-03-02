@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       application_name:
-        description: 'Abbreviation of the ppplication name'
+        description: 'Abbreviation of the application name'
         required: true
       increment_provision_number:
         description: 'Increment the version number of the AKS'
@@ -23,7 +23,7 @@ on:
         required: false
         default: 'eastus2'
       gitops_repo:
-        description: 'GitOps Repository int the GitHub Organization'
+        description: 'GitOps Repository in the GitHub Organization'
         required: true
         default: 'nuo-k8s'
         
@@ -47,7 +47,7 @@ jobs:
         if: contains(github.event.inputs.environment, 'prod')
         uses: Azure/login@v1.1
         with:
-          creds: ${{ secrets.AZ_SP_GH }}
+          creds: ${{ secrets.MS_AZ_GH }}
 
       # --------------------------------------------------------------
       #   Azure Development Login
@@ -57,7 +57,7 @@ jobs:
         if: contains(github.event.inputs.environment, 'dev')
         uses: Azure/login@v1.1
         with:
-          creds: ${{ secrets.AZ_SP_GH_DEV }}
+          creds: ${{ secrets.MS_AZ_GH }}
           
       # --------------------------------------------------------------
       #   Job Prep: Define Python Version
@@ -108,7 +108,7 @@ jobs:
         if: contains(github.event.inputs.environment, 'prod')
         uses: Azure/login@v1.1
         with:
-          creds: ${{ secrets.AZ_SP_GH }}
+          creds: ${{ secrets.MS_AZ_GH }}
 
       # --------------------------------------------------------------
       #   Azure Development Login
@@ -118,7 +118,7 @@ jobs:
         if: contains(github.event.inputs.environment, 'dev')
         uses: Azure/login@v1.1
         with:
-          creds: ${{ secrets.AZ_SP_GH_DEV }}
+          creds: ${{ secrets.MS_AZ_GH }}
 
       # --------------------------------------------------------------
       #   Job Prep: Define Python Version
@@ -173,7 +173,7 @@ jobs:
         if: contains(github.event.inputs.environment, 'prod')
         uses: Azure/login@v1.1
         with:
-          creds: ${{ secrets.AZ_SP_GH }}
+          creds: ${{ secrets.MS_AZ_GH }}
 
       # --------------------------------------------------------------
       #   Azure Development Login
@@ -183,7 +183,7 @@ jobs:
         if: contains(github.event.inputs.environment, 'dev')
         uses: Azure/login@v1.1
         with:
-          creds: ${{ secrets.AZ_SP_GH_DEV }}
+          creds: ${{ secrets.MS_AZ_GH }}
           
       # --------------------------------------------------------------
       #   Job Body: Tag the Cluster Resources
@@ -221,7 +221,7 @@ jobs:
         if: contains(github.event.inputs.environment, 'prod')
         uses: Azure/login@v1.1
         with:
-          creds: ${{ secrets.AZ_SP_GH }}
+          creds: ${{ secrets.MS_AZ_GH }}
 
       # --------------------------------------------------------------
       #   Azure Development Login
@@ -231,7 +231,7 @@ jobs:
         if: contains(github.event.inputs.environment, 'dev')
         uses: Azure/login@v1.1
         with:
-          creds: ${{ secrets.AZ_SP_GH_DEV }}
+          creds: ${{ secrets.MS_AZ_GH }}
     
       # --------------------------------------------------------------
       #   Job Body: Grant Pull Permissions to AKS Cluster
@@ -260,13 +260,13 @@ jobs:
         if: contains(github.event.inputs.environment, 'prod')
         uses: Azure/login@v1.1
         with:
-          creds: ${{ secrets.AZ_SP_GH }}
+          creds: ${{ secrets.MS_AZ_GH }}
       
       - name: Azure Kubernetes set context
         if: contains(github.event.inputs.environment, 'prod')
         uses: Azure/aks-set-context@v1
         with:
-          creds: ${{ secrets.AZ_SP_GH }}
+          creds: ${{ secrets.MS_AZ_GH }}
           resource-group: ${{ needs.provision-cluster.outputs.resource_group_name }}
           cluster-name: ${{ needs.provision-cluster.outputs.aks_cluster_name }}
 
@@ -278,13 +278,13 @@ jobs:
         if: contains(github.event.inputs.environment, 'dev')
         uses: Azure/login@v1.1
         with:
-          creds: ${{ secrets.AZ_SP_GH_DEV }}
+          creds: ${{ secrets.MS_AZ_GH }}
       
       - name: Azure Kubernetes set context
         if: contains(github.event.inputs.environment, 'dev')
         uses: Azure/aks-set-context@v1
         with:
-          creds: ${{ secrets.AZ_SP_GH_DEV }}
+          creds: ${{ secrets.MS_AZ_GH }}
           resource-group: ${{ needs.provision-cluster.outputs.resource_group_name }}
           cluster-name: ${{ needs.provision-cluster.outputs.aks_cluster_name }}
     
