@@ -74,7 +74,7 @@ jobs:
       - name: Set the KeyVault, Registry, and Registry Group Name
         id: envnumber
         run: |        
-          python Azure/Compute/AKS/Config/action-env.py `
+          python provision/Config/action-env.py `
             ${{ github.event.inputs.environment }} `
             ${{ github.event.inputs.region_name }} `
             ${{ github.event.inputs.application_name }} `
@@ -135,7 +135,7 @@ jobs:
       - name: Set Resource
         id: setnames
         run: |
-          python Azure/Compute/AKS/Config/action-setup.py `
+          python provision/Config/action-setup.py `
             ${{ github.event.inputs.environment }} `
             ${{ github.event.inputs.region_name }} `
             ${{ github.event.inputs.application_name }} `
